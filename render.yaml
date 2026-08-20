@@ -1,0 +1,12 @@
+services:
+  - type: worker
+    name: ai-job-agent
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && playwright install chromium
+    startCommand: python -m auto_job_agent.bot
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: HEADLESS_BROWSER
+        value: "True"

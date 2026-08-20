@@ -1,0 +1,37 @@
+# Environment variables
+.env
+auto_job_agent/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Database
+*.db
+*.sqlite3
+
+# Heavy chat dump media
+Яндекс вакансии/photos/
+Яндекс вакансии/images/
+Чатик/photos/
+Чатик/files/*.pdf
+Чатик/files/*.jpg
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Generated resumes temp
+auto_job_agent/generated_resumes/*.docx
+!auto_job_agent/generated_resumes/.gitkeep

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Олег Кохтенко — Product Manager CV</title>
+  <style>
+    :root {
+      --primary: #1e293b;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --text: #334155;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --bg: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background-color: #f8fafc;
+      line-height: 1.5;
+      font-size: 14px;
+      padding: 30px 15px;
+    }
+
+    .resume-container {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--bg);
+      padding: 40px 48px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+    }
+
+    .name-title h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .name-title .role {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .contacts {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-align: right;
+      line-height: 1.6;
+    }
+
+    .contacts a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* Summary */
+    .summary {
+      background: var(--accent-light);
+      border-left: 4px solid var(--accent);
+      padding: 14px 18px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 24px;
+      font-size: 13.5px;
+      color: #1e3a8a;
+      line-height: 1.6;
+    }
+
+    /* Section styling */
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--primary);
+      border-bottom: 1.5px solid var(--border);
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+      margin-top: 24px;
+    }
+
+    .job {
+      margin-bottom: 20px;
+    }
+
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .company-role {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .company-role span {
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .job-dates {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .job-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+
+    ul.achievements {
+      list-style-type: none;
+      padding-left: 0;
+    }
+
+    ul.achievements li {
+      position: relative;
+      padding-left: 18px;
+      margin-bottom: 7px;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    ul.achievements li::before {
+      content: "•";
+      position: absolute;
+      left: 4px;
+      color: var(--accent);
+      font-weight: bold;
+      font-size: 16px;
+      line-height: 1;
+      top: 1px;
+    }
+
+    ul.achievements strong {
+      color: var(--primary);
+    }
+
+    /* Skills Grid */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+      font-size: 13px;
+    }
+
+    .skill-category {
+      background: #f8fafc;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .skill-category strong {
+      color: var(--primary);
+      display: block;
+      margin-bottom: 3px;
+      font-size: 13px;
+    }
+
+    /* Education */
+    .edu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+      font-size: 13.5px;
+    }
+
+    .edu-item strong {
+      color: var(--primary);
+    }
+
+    .edu-item .edu-date {
+      font-size: 13px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    @media print {
+      body {
+        background: none;
+        padding: 0;
+      }
+      .resume-container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .summary {
+        background: #f0f4f8;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="resume-container">
+  <header class="header">
+    <div class="name-title">
+      <h1>Олег Кохтенко</h1>
+      <div class="role">Product Manager | Senior Product Manager (B2C, Gamification, Growth)</div>
+    </div>
+    <div class="contacts">
+      <div>📞 +7 (929) 643-15-42</div>
+      <div>✈️ Telegram: <a href="https://t.me/olegkokhtenko">@olegkokhtenko</a></div>
+      <div>✉️ <a href="mailto:olegkokhtenko@gmail.com">olegkokhtenko@gmail.com</a></div>
+      <div>📍 Москва (гибрид / удаленка)</div>
+    </div>
+  </header>
+
+  <div class="summary">
+    <strong>Обо мне:</strong> Product Manager с опытом 3.5+ лет в управлении B2C и B2B продуктами в топ-телекоме и IT (МегаФон, Yota, TrueConf). Эксперт в геймификации, монетизации (ARPU/ARPPU) и росте вовлечения на масштабе 500k+ MAU.<br>
+    <strong>AI & Vibe-кодинг:</strong> активно применяю LLM-стек (Cursor, Claude 3.5 Sonnet, OpenAI API) для быстрого создания интерактивных прототипов и валидации гипотез до передачи в разработку, сокращая Time-to-Market в 3–4 раза. Магистр ВШЭ («Управление цифровым продуктом»).
+  </div>
+
+  <section>
+    <div class="section-title">Профессиональный опыт</div>
+
+    <!-- MegaFon -->
+    <div class="job">
+      <div class="job-header">
+        <div class="company-role">МегаФон B2C <span>/ Product Manager (Геймификация и игры: МегаФон и Yota)</span></div>
+        <div class="job-dates">2024 — настоящее время</div>
+      </div>
+      <div class="job-desc">Игровой раздел в мобильном приложении (500k+ MAU, 3–4 игры одновременно, кросс-функциональная команда разработки, аналитиков, маркетинга и внешних игровых студий).</div>
+      <ul class="achievements">
+        <li><strong>Рост выручки (ARPU +116% YoY):</strong> спроектировал и внедрил систему мета-механик (сезонные события, Battle Pass / сезонный пропуск, внутриигровая валюта и динамические Flash-скидки).</li>
+        <li><strong>Сегментация и монетизация платящих (ARPPU +39%):</strong> исследовал поведение высокодоходных когорт, переработал ценовую сетку и запустил персонализированные офферы под каждый сегмент.</li>
+        <li><strong>AI-прототипирование и Vibe-кодинг:</strong> внедрил практику сборки интерактивных игровых прототипов и UI-флоу на базе AI (Cursor, Claude, web-компоненты), сократив цикл проверки гипотез с 3 недель до 2–3 дней до передачи в основной бэклог.</li>
+        <li><strong>Продуктовая стратегия 2026–2027:</strong> провел 30+ качественных интервью (JTBD/CustDev) и количественные исследования, разработал и защитил на C-level стратегию развития геймификации для МегаФона и Yota.</li>
+        <li><strong>Рост органического трафика (+5% к DAU):</strong> оптимизировал точки входа в Геймцентр через A/B-тесты сегментированных баннеров на главной странице мобильного ЛК.</li>
+        <li><strong>Маркетинг и удержание (TR +11%, LTV лида ×2):</strong> запустил с CRM-маркетингом триггерные сценарии по игровым событиям, привлекая пользователей с удвоенным жизненным циклом.</li>
+        <li><strong>Кросс-продажи VAS (+15% в подключение):</strong> интегрировал продажу дополнительных услуг через игровые механики и оптимизацию CJM.</li>
+        <li><strong>Масштабирование на Yota:</strong> провел анализ ЦА, запустил пилотную Match-3 игру и сформировал требования для выделенного Геймцентра Yota в рамках стратегии 2026–2027.</li>
+      </ul>
+    </div>
+
+    <!-- TrueConf -->
+    <div class="job">
+      <div class="job-header">
+        <div class="company-role">TrueConf B2B <span>/ Product Manager, Product Owner, Delivery Manager</span></div>
+        <div class="job-dates">2022 — 2024</div>
+      </div>
+      <div class="job-desc">Аппаратно-программный комплекс ВКС TrueConf Group. Управление кросс-функциональной командой из 7 человек (Backend, Frontend, DevOps, QA, UX/UI, аналитики) + производство (3 чел).</div>
+      <ul class="achievements">
+        <li><strong>Запуск нового продукта с 0 до 1 за 2 месяца:</strong> создал планшетный интерфейс управления ВКС (Room Controller); провел CustDev, прототипирование в Figma, координировал 2 команды разработки и провел защиту перед заказчиками.</li>
+        <li><strong>Комплексный редизайн экосистемы:</strong> на основе 3 месяцев UX-исследований оптимизировал 90% сценариев, <strong>сократив путь пользователя к ключевым функциям в 2 раза</strong>.</li>
+        <li><strong>Разработка дизайн-системы:</strong> создал корпоративный UX/UI Guide, устранивший ошибки в макетах и ускоривший передачу дизайна в разработку.</li>
+        <li><strong>Рост B2B-продаж на 25%:</strong> исследовал потребности enterprise-клиентов и сформировал продуктовую матрицу типовых комплектов оборудования TrueConf Group.</li>
+        <li><strong>Снижение брака с 45% до 5%:</strong> выстроил с нуля отдел технического контроля (ОТК) и сквозную аналитику в Power BI (1С, CRM, Google Sheets), снизив рекламации в 9 раз за 6 месяцев.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Образование</div>
+    <div class="edu-item">
+      <div><strong>НИУ Высшая школа экономики (НИУ ВШЭ)</strong> — Магистратура: <em>«Управление цифровым продуктом»</em> (ВШБ)</div>
+      <div class="edu-date">2022 — 2024</div>
+    </div>
+    <div class="edu-item">
+      <div><strong>РТУ МИРЭА</strong> — Бакалавриат: <em>«Инноватика»</em>, Институт технологий управления. <strong>Диплом с отличием</strong></div>
+      <div class="edu-date">2018 — 2022</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">Навыки и стек</div>
+    <div class="skills-grid">
+      <div class="skill-category">
+        <strong>Product Discovery & Growth</strong>
+        JTBD, CustDev, CJM, A/B Testing, Unit-экономика, RICE/ICE, Roadmapping, OKR, Product Strategy, GTM.
+      </div>
+      <div class="skill-category">
+        <strong>AI & Rapid Prototyping (Vibe-кодинг)</strong>
+        Cursor, Claude 3.5 Sonnet, OpenAI API, ChatGPT, Быстрый запуск Web/Mobile MVP, Midjourney, Prompt Engineering.
+      </div>
+      <div class="skill-category">
+        <strong>Геймификация & Монетизация</strong>
+        Мета-механики, Battle Pass, Внутриигровая валюта, Offerwall, LiveOps, Ивенты, Retention-петли, Персонализация офферов.
+      </div>
+      <div class="skill-category">
+        <strong>Аналитика, Данные & Инструменты</strong>
+        SQL (PostgreSQL, ClickHouse), Python (Pandas/NumPy), Power BI, Amplitude, AppMetrica, Figma, Jira, Confluence.
+      </div>
+    </div>
+    <div style="margin-top: 10px; font-size: 13px; color: var(--text-muted);">
+      <strong>Языки:</strong> Русский (Родной), Английский (C1 / Advanced — свободный профессиональный), Чешский (C1 / Advanced).
+    </div>
+  </section>
+</div>
+
+</body>
+</html>

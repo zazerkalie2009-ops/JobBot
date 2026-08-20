@@ -1,0 +1,35 @@
+name: Scheduled Vacancy Scan & Apply
+
+on:
+  schedule:
+    # Run every 4 hours
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  scan-and-notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Run Scan & Matcher
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          HEADLESS_BROWSER: "True"
+        run: |
+          python3 -c "
+          from auto_job_agent.vacancy_parser import parse_local_yandex_vacancies
+          from auto_job_agent.llm_engine import load_master_profile, analyze_and_adapt
+          print('Scanning vacancies...')
+          "
