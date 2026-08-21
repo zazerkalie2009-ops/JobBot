@@ -24,10 +24,11 @@ dp = Dispatcher()
 
 def get_action_keyboard(vacancy_id: int) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
-    builder.button(text="🚀 Откликнуться (Playwright)", callback_data=f"apply:{vacancy_id}")
     builder.button(text="📄 Скачать DOCX", callback_data=f"get_cv:{vacancy_id}")
+    builder.button(text="✉️ Письмо для копирования", callback_data=f"get_cl:{vacancy_id}")
+    builder.button(text="🚀 Откликнуться (Playwright)", callback_data=f"apply:{vacancy_id}")
     builder.button(text="❌ Пропустить", callback_data=f"reject:{vacancy_id}")
-    builder.adjust(1, 2)
+    builder.adjust(2, 1, 1)
     return builder.as_markup()
 
 @dp.message(Command("start"))
@@ -35,9 +36,9 @@ async def cmd_start(message: types.Message):
     welcome_text = (
         "👋 **Привет, Олег! Я твой персональный AI Job Agent.**\n\n"
         "Я умею:\n"
-        "1. 🔍 **Искать реальные свежие вакансии** с официальных сайтов (Яндекс, IT-компании, каналы) — команда `/scan`.\n"
+        "1. 🔍 **Искать реальные свежие вакансии** с официальных сайтов (Яндекс, Т-Банк, Cloud.ru, Авито, Ozon, VK) — команда `/scan`.\n"
         "2. 🎯 **Оценивать Match Score (0–100%)** под твой Master-профиль.\n"
-        "3. 📝 **Генерировать адаптированное резюме (.docx)** и персонализированное сопроводительное письмо на лету.\n"
+        "3. 📝 **Генерировать адаптированное резюме (.docx)** и адресное сопроводительное письмо (в режиме копирования в 1 клик).\n"
         "4. 🚀 **Автоматически заполнять формы и отправлять отклики** через Playwright.\n\n"
         "💡 *Ты можешь отправить команду `/scan` или просто переслать мне ссылку/текст любой вакансии!*"
     )
@@ -45,7 +46,7 @@ async def cmd_start(message: types.Message):
 
 @dp.message(Command("scan"))
 async def cmd_scan(message: types.Message):
-    status_msg = await message.answer("🔄 **Ищу свежие вакансии на карьерных сайтах и API...**", parse_mode="Markdown")
+    status_msg = await message.answer("🔄 **Ищу свежие вакансии на карьерных сайтах компаний...**", parse_mode="Markdown")
     
     vacancies = get_all_live_vacancies()
     profile = load_master_profile()
@@ -54,7 +55,7 @@ async def cmd_scan(message: types.Message):
         await status_msg.edit_text("⚠️ Не удалось получить список вакансий. Попробуйте чуть позже.")
         return
         
-    await status_msg.edit_text(f"🔍 Найдено **{len(vacancies)}** актуальных вакансий. Анализирую релевантность и генерирую материалы...", parse_mode="Markdown")
+    await status_msg.edit_text(f"🔍 Найдено **{len(vacancies)}** вакансий из разных компаний. Анализирую и генерирую материалы...", parse_mode="Markdown")
     
     # Analyze and sort by match score
     scored_vacs = []
@@ -64,51 +65,60 @@ async def cmd_scan(message: types.Message):
         
     scored_vacs.sort(key=lambda x: x[0], reverse=True)
     
-    found_count = 0
+    # Select diverse mix of companies (not just Yandex)
+    selected_vacs = []
+    seen_companies = {}
+    
     for score, v, analysis in scored_vacs:
-        if score >= 75:
-            # Generate tailored docx with clean filename
-            safe_comp = re.sub(r'[^\w]', '', v['company']) or 'Company'
-            safe_title = re.sub(r'[^\w]', '_', v['title'])[:35].strip('_')
-            docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_{safe_comp}_{safe_title}.docx"
-            
-            build_resume_docx(docx_path, profile, {
-                'role': analysis['adapted_role'],
-                'summary': analysis['adapted_summary']
-            })
-            
-            vac_id = save_vacancy(
-                source=v['source'],
-                external_id=v['external_id'],
-                title=v['title'],
-                company=v['company'],
-                url=v['url'],
-                description=v['description'],
-                domain=analysis['domain'],
-                match_score=analysis['match_score'],
-                match_reasons=analysis['match_reasons'],
-                adapted_role=analysis['adapted_role'],
-                cover_letter=analysis['cover_letter'],
-                docx_path=docx_path
-            )
-            
-            card_text = (
-                f"🎯 **{v['title']}**\n"
-                f"🏢 **Компания:** {v['company']}\n"
-                f"🌐 **Источник:** {v['source']}\n\n"
-                f"📊 **Match Score:** **{analysis['match_score']}%**\n"
-                f"🏷 **Домен:** {analysis['domain']}\n"
-                f"💡 **Почему подходит:** {analysis['match_reasons']}\n\n"
-                f"🔗 [Открыть страницу вакансии]({v['url']})\n\n"
-                f"✉️ **Сопроводительное письмо:**\n_{analysis['cover_letter'][:280]}..._"
-            )
-            
-            await message.answer(card_text, parse_mode="Markdown", reply_markup=get_action_keyboard(vac_id))
-            found_count += 1
-            if found_count >= 5:  # Send top 5
+        comp = v['company']
+        # Allow max 2 from Yandex, max 2 from others to keep diversity
+        if seen_companies.get(comp, 0) < 2:
+            seen_companies[comp] = seen_companies.get(comp, 0) + 1
+            selected_vacs.append((score, v, analysis))
+            if len(selected_vacs) >= 5:
                 break
                 
-    await message.answer(f"✅ Показаны топ-**{found_count}** наиболее релевантных вакансий.", parse_mode="Markdown")
+    for score, v, analysis in selected_vacs:
+        # Generate tailored docx
+        safe_comp = re.sub(r'[^\w]', '', v['company']) or 'Company'
+        safe_title = re.sub(r'[^\w]', '_', v['title'])[:35].strip('_')
+        docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_{safe_comp}_{safe_title}.docx"
+        
+        build_resume_docx(docx_path, profile, {
+            'role': analysis['adapted_role'],
+            'summary': analysis['adapted_summary']
+        })
+        
+        vac_id = save_vacancy(
+            source=v['source'],
+            external_id=v['external_id'],
+            title=v['title'],
+            company=v['company'],
+            url=v['url'],
+            description=v['description'],
+            domain=analysis['domain'],
+            match_score=analysis['match_score'],
+            match_reasons=analysis['match_reasons'],
+            adapted_role=analysis['adapted_role'],
+            cover_letter=analysis['cover_letter'],
+            docx_path=docx_path
+        )
+        
+        card_text = (
+            f"🎯 **{v['title']}**\n"
+            f"🏢 **Компания:** {v['company']}\n"
+            f"🌐 **Источник:** {v['source']}\n\n"
+            f"📊 **Match Score:** **{analysis['match_score']}%**\n"
+            f"🏷 **Домен:** {analysis['domain']}\n"
+            f"💡 **Почему подходит:** {analysis['match_reasons']}\n\n"
+            f"🔗 **[Перейти на сайт к вакансии]({v['url']})**\n\n"
+            f"✉️ **Сопроводительное письмо (нажмите на текст ниже, чтобы скопировать):**\n"
+            f"```\n{analysis['cover_letter']}\n```"
+        )
+        
+        await message.answer(card_text, parse_mode="Markdown", reply_markup=get_action_keyboard(vac_id))
+            
+    await message.answer(f"✅ Показаны топ-**{len(selected_vacs)}** вакансий от разных компаний.", parse_mode="Markdown")
 
 @dp.message(F.text)
 async def handle_vacancy_text(message: types.Message):
@@ -152,11 +162,11 @@ async def handle_vacancy_text(message: types.Message):
         f"📊 **Релевантность (Match Score):** **{analysis['match_score']}%**\n"
         f"🏷 **Целевой домен:** {analysis['domain']}\n"
         f"💡 **Фокус:** {analysis['match_reasons']}\n\n"
-        f"✉️ **Готовое сопроводительное письмо:**\n\n"
-        f"{analysis['cover_letter']}"
+        f"✉️ **Сопроводительное письмо (нажмите на текст ниже, чтобы скопировать):**\n"
+        f"```\n{analysis['cover_letter']}\n```"
     )
     
-    await message.answer(card_text, reply_markup=get_action_keyboard(vac_id))
+    await message.answer(card_text, parse_mode="Markdown", reply_markup=get_action_keyboard(vac_id))
 
 @dp.callback_query(F.data.startswith("get_cv:"))
 async def cb_get_cv(callback: types.CallbackQuery):
@@ -168,6 +178,17 @@ async def cb_get_cv(callback: types.CallbackQuery):
         await callback.answer()
     else:
         await callback.answer("Файл не найден", show_alert=True)
+
+@dp.callback_query(F.data.startswith("get_cl:"))
+async def cb_get_cl(callback: types.CallbackQuery):
+    vac_id = int(callback.data.split(":")[1])
+    vac = get_vacancy(vac_id)
+    if vac and vac.get('cover_letter'):
+        msg = f"✉️ **Сопроводительное письмо под {vac['company']} (кликните для копирования):**\n\n```\n{vac['cover_letter']}\n```"
+        await callback.message.answer(msg, parse_mode="Markdown")
+        await callback.answer()
+    else:
+        await callback.answer("Письмо не найдено", show_alert=True)
 
 @dp.callback_query(F.data.startswith("apply:"))
 async def cb_apply(callback: types.CallbackQuery):

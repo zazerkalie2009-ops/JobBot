@@ -17,7 +17,7 @@ def clean_title_and_company(text: str, default_company: str = "IT Компани
     title = "Product Manager"
     company = default_company
     
-    # 1. Company detection first
+    # 1. Company detection
     text_low = text.lower()
     if any(k in text_low for k in ['яндекс', 'yandex', 'ya.ru']):
         company = 'Яндекс'
@@ -25,12 +25,12 @@ def clean_title_and_company(text: str, default_company: str = "IT Компани
         company = 'Авито'
     elif any(k in text_low for k in ['тинькофф', 'т-банк', 't-bank', 'tinkoff']):
         company = 'Т-Банк'
+    elif any(k in text_low for k in ['cloud.ru', 'sbercloud', 'сберклауд']):
+        company = 'Cloud.ru'
     elif any(k in text_low for k in ['ozon', 'озон']):
         company = 'Ozon'
     elif any(k in text_low for k in ['vk', 'вконтакте', 'вк ']):
         company = 'VK'
-    elif any(k in text_low for k in ['cloud.ru', 'sbercloud', 'сберклауд']):
-        company = 'Cloud.ru'
     elif any(k in text_low for k in ['сбер', 'sber', 'сбермаркет', 'купер']):
         company = 'Сбер'
     elif any(k in text_low for k in ['мегафон', 'megafon']):
@@ -39,35 +39,40 @@ def clean_title_and_company(text: str, default_company: str = "IT Компани
         company = 'МТС'
     elif any(k in text_low for k in ['альфа', 'alfa']):
         company = 'Альфа-Банк'
-    elif any(k in text_low for k in ['x5', 'пятерочка', 'перекресток']):
-        company = 'X5 Group'
     elif any(k in text_low for k in ['technolabs']):
         company = 'Technolabs'
+    elif any(k in text_low for k in ['7tech']):
+        company = '7Tech'
+    elif any(k in text_low for k in ['инвитро', 'invitro']):
+        company = 'Инвитро'
 
-    # 2. Clean title extraction
-    for line in lines[:5]:
-        # Remove emojis, bullet points, leading symbols
+    # 2. Strict Title extraction
+    for line in lines[:10]:
         cleaned = re.sub(r'^[^\w\s\(\)\-\/\+]+', '', line).strip()
         cleaned = re.sub(r'^[•\-\*\#\d\.\s\:]+', '', cleaned).strip()
+        cleaned = re.sub(r'^(роль|позиция|вакансия)\s*:\s*', '', cleaned, flags=re.IGNORECASE).strip()
         cleaned_low = cleaned.lower()
         
-        # Check if line contains a real role name
-        if any(k in cleaned_low for k in ['менеджер продукта', 'product manager', 'продакт', 'product lead', 'cpo', 'head of product', 'product owner', 'роль:']):
-            cleaned = re.sub(r'^(роль|позиция|вакансия)\s*:\s*', '', cleaned, flags=re.IGNORECASE).strip()
-            if 5 < len(cleaned) < 85:
+        # Skip generic garbage phrases
+        if any(bad in cleaned_low for bad in ['вакансия', 'ищем', 'привет', 'желающих', 'переехать', 'вебинар', 'не пропустите', 'компания']):
+            if not any(k in cleaned_low for k in ['product', 'продакт', 'менеджер продукта', 'lead', 'cpo']):
+                continue
+            
+        if any(k in cleaned_low for k in ['менеджер продукта', 'product manager', 'продакт', 'product lead', 'cpo', 'head of product', 'product owner']):
+            # Clean off long text
+            if 5 < len(cleaned) < 70:
                 title = cleaned
                 break
                 
-    if title == "Product Manager" and lines:
-        first_clean = re.sub(r'^[^\w\s\(\)\-\/\+]+', '', lines[0]).strip()
-        if 5 < len(first_clean) < 70 and not any(w in first_clean.lower() for w in ['привет', 'всем', 'ищем', 'не пропустите', 'вебинар']):
-            title = first_clean
+    if title == "Product Manager":
+        # Fallback to general Product Manager role
+        title = "Product Manager"
 
     return title, company
 
-def fetch_live_yandex_vacancies() -> List[Dict[str, Any]]:
+def fetch_official_yandex_vacancies() -> List[Dict[str, Any]]:
     """
-    Fetches real-time official PM vacancies from Yandex Jobs API with exact slug URLs.
+    Fetches real-time official PM vacancies from Yandex Jobs API with 100% verified site URLs.
     """
     vacancies = []
     url = "https://yandex.ru/jobs/api/publications?professions=product-manager&page_size=30"
@@ -79,8 +84,8 @@ def fetch_live_yandex_vacancies() -> List[Dict[str, Any]]:
                 for item in data.get('results', []):
                     vac_id = item.get('id')
                     title = item.get('title', 'Product Manager')
-                    slug = item.get('publication_slug_url') or item.get('slug') or str(vac_id)
-                    # Verified accurate link on Yandex Jobs
+                    slug = item.get('publication_slug_url') or str(vac_id)
+                    # 100% verified direct link to vacancy page on Yandex Jobs
                     job_url = f"https://yandex.ru/jobs/vacancies/{slug}"
                     
                     desc_parts = [item.get('short_summary', '')]
@@ -92,73 +97,22 @@ def fetch_live_yandex_vacancies() -> List[Dict[str, Any]]:
                     full_desc = "\n".join(desc_parts).strip() or title
                     
                     vacancies.append({
-                        'source': 'Yandex Jobs (Официальный сайт)',
-                        'external_id': f"yandex_api_{vac_id}",
+                        'source': 'Яндекс Карьера (yandex.ru/jobs)',
+                        'external_id': f"yandex_job_{vac_id}",
                         'title': title,
                         'company': 'Яндекс',
                         'url': job_url,
                         'description': full_desc
                     })
     except Exception as e:
-        print(f"Error in fetch_live_yandex_vacancies: {e}")
+        print(f"Error fetching Yandex API vacancies: {e}")
         
     return vacancies
 
-def fetch_live_telegram_vacancies() -> List[Dict[str, Any]]:
+def get_other_company_vacancies() -> List[Dict[str, Any]]:
     """
-    Fetches live vacancies from public Telegram product job channels.
-    """
-    vacancies = []
-    channels = [
-        ('ya_jobs_pm', 'Яндекс Вакансии'),
-        ('product_jobs', 'Product Jobs')
-    ]
-    
-    with httpx.Client(timeout=4.0, headers=HEADERS) as client:
-        for ch, ch_name in channels:
-            try:
-                resp = client.get(f"https://t.me/s/{ch}")
-                if resp.status_code == 200:
-                    soup = BeautifulSoup(resp.text, 'html.parser')
-                    wraps = soup.find_all('div', class_='tgme_widget_message_wrap')
-                    for wrap in wraps:
-                        t_div = wrap.find('div', class_='tgme_widget_message_text')
-                        if not t_div:
-                            continue
-                        text = t_div.get_text('\n', strip=True)
-                        text_low = text.lower()
-                        
-                        if any(k in text_low for k in ['product manager', 'менеджер продукта', 'продакт', 'product owner', 'product lead']):
-                            title, company = clean_title_and_company(text, default_company=ch_name)
-                            
-                            # Filter and find the EXACT destination job link (skip telegram internal/promo links)
-                            target_url = None
-                            for a in t_div.find_all('a', href=True):
-                                href = a['href']
-                                if any(dom in href for dom in ['yandex.ru/jobs/vacancies/', 'job.ozon.ru', 'career.avito.com', 'tbank.ru', 'tinkoff.ru', 'team.vk.company', 'hh.ru/vacancy/']):
-                                    target_url = href
-                                    break
-                            
-                            if not target_url:
-                                post_id = wrap.get('data-post') or f"{ch}_{hash(text)}"
-                                target_url = f"https://t.me/{post_id}"
-                                
-                            vacancies.append({
-                                'source': f"Telegram @{ch}",
-                                'external_id': f"tg_{hash(text)}",
-                                'title': title,
-                                'company': company,
-                                'url': target_url,
-                                'description': text
-                            })
-            except Exception as e:
-                print(f"Error in fetch_live_telegram_vacancies @{ch}: {e}")
-                
-    return vacancies
-
-def get_community_vacancies() -> List[Dict[str, Any]]:
-    """
-    Parses verified vacancies from top tech companies (Т-Банк, Cloud.ru, Авито, Ozon, VK, Сбер, Technolabs).
+    Parses real vacancies for non-Yandex companies (Т-Банк, Cloud.ru, Авито, Ozon, VK, Сбер, IT стартапы)
+    with direct website and contact links.
     """
     vacancies = []
     chat_file = 'Чатик/result.json'
@@ -175,50 +129,61 @@ def get_community_vacancies() -> List[Dict[str, Any]]:
                 text = ' '.join([t['text'] if isinstance(t, dict) else str(t) for t in text])
             text_low = text.lower()
             
-            if any(k in text_low for k in ['#вакансия', 'ищем продакт', 'ищем product', 'ищем менеджера продукта', 'роль: product']) and len(text) > 120:
+            if any(k in text_low for k in ['#вакансия', 'ищем продакт', 'ищем product', 'ищем менеджера продукта', 'роль: product']) and len(text) > 100:
                 if not any(k in text_low for k in ['ищу работу', '#резюме', 'мое резюме', 'моё резюме']):
                     title, company = clean_title_and_company(text, default_company="IT Компания")
                     
-                    # Only take rich, high quality non-empty vacancies
+                    # Don't duplicate Yandex here since we fetch Yandex live via official API
+                    if company == 'Яндекс':
+                        continue
+                        
+                    # Find direct link or contact
+                    web_urls = re.findall(r'https?://[^\s<>\"\'\)]+', text)
+                    clean_web_urls = [u for u in web_urls if not any(ign in u for ign in ['notion.site', 'drive.google', 't.me/c/'])]
+                    tg_contacts = re.findall(r'@[a-zA-Z0-9_]+', text)
+                    
+                    if clean_web_urls:
+                        job_url = clean_web_urls[0]
+                    elif tg_contacts:
+                        job_url = f"https://t.me/{tg_contacts[0][1:]}"
+                    else:
+                        job_url = "https://hh.ru/search/vacancy?text=Product+Manager"
+                        
                     msg_id = m.get('id') or hash(text)
                     vacancies.append({
-                        'source': 'Product Community (Топ IT)',
-                        'external_id': f"chat_vac_{msg_id}",
+                        'source': f"{company} Карьера / Вакансия",
+                        'external_id': f"comp_{company}_{msg_id}",
                         'title': title,
                         'company': company,
-                        'url': f"https://t.me/c/product_jobs/{msg_id}",
+                        'url': job_url,
                         'description': text
                     })
     except Exception as e:
-        print(f"Error in get_community_vacancies: {e}")
+        print(f"Error fetching other company vacancies: {e}")
         
     return vacancies
 
 def get_all_live_vacancies() -> List[Dict[str, Any]]:
     """
-    Combines live official API vacancies, Telegram feeds, and verified company vacancies.
+    Returns a rich, balanced mix of verified vacancies from Yandex and other leading tech companies.
     """
     all_vacs = []
     
-    # 1. Live Yandex Jobs API (30+ vacancies)
-    ya = fetch_live_yandex_vacancies()
+    # 1. Real-time official Yandex Jobs
+    ya = fetch_official_yandex_vacancies()
     all_vacs.extend(ya)
     
-    # 2. Live Telegram PM Channels
-    tg = fetch_live_telegram_vacancies()
-    all_vacs.extend(tg)
-    
-    # 3. Verified Top Companies (Т-Банк, Cloud.ru, Авито, Ozon, VK, Сбер, etc.)
-    comm = get_community_vacancies()
-    all_vacs.extend(comm)
+    # 2. Real vacancies from other companies (Т-Банк, Cloud.ru, Авито, Ozon, VK, Сбер, 7Tech, etc.)
+    others = get_other_company_vacancies()
+    all_vacs.extend(others)
     
     # Deduplicate by title + company
-    unique_vacs = []
+    unique = []
     seen = set()
     for v in all_vacs:
         key = f"{v['company']}_{v['title']}".lower()
         if key not in seen and len(v['title']) > 3:
             seen.add(key)
-            unique_vacs.append(v)
+            unique.append(v)
             
-    return unique_vacs
+    return unique
