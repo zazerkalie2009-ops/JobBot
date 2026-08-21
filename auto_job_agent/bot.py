@@ -1,4 +1,5 @@
 import os
+import re
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, types, F
@@ -10,9 +11,9 @@ from auto_job_agent.config import TELEGRAM_BOT_TOKEN, ADMIN_CHAT_ID, HEADLESS_BR
 from auto_job_agent.database import (
     init_db, save_vacancy, get_vacancy, get_pending_vacancies, update_status
 )
-from auto_job_agent.llm_engine import load_master_profile, analyze_and_adapt, MASTER_PROFILE_PATH
+from auto_job_agent.llm_engine import load_master_profile, analyze_and_adapt
 from auto_job_agent.docx_generator import build_resume_docx
-from auto_job_agent.vacancy_parser import parse_local_yandex_vacancies
+from auto_job_agent.vacancy_parser import get_all_live_vacancies, clean_title_and_company
 from auto_job_agent.browser_applier import apply_to_yandex_job
 
 logging.basicConfig(level=logging.INFO)
@@ -34,28 +35,43 @@ async def cmd_start(message: types.Message):
     welcome_text = (
         "👋 **Привет, Олег! Я твой персональный AI Job Agent.**\n\n"
         "Я умею:\n"
-        "1. 🔍 **Сканировать каналы и базы вакансий** (Яндекс, hh.ru, TG) — команда `/scan`.\n"
-        "2. 🎯 **Анализировать релевантность (Match Score)** под твой Master-профиль.\n"
-        "3. 📝 **Генерировать адаптированное резюме (.docx)** и адресное сопроводительное письмо на лету.\n"
+        "1. 🔍 **Искать реальные свежие вакансии** с официальных сайтов (Яндекс, IT-компании, каналы) — команда `/scan`.\n"
+        "2. 🎯 **Оценивать Match Score (0–100%)** под твой Master-профиль.\n"
+        "3. 📝 **Генерировать адаптированное резюме (.docx)** и персонализированное сопроводительное письмо на лету.\n"
         "4. 🚀 **Автоматически заполнять формы и отправлять отклики** через Playwright.\n\n"
-        "💡 *Просто отправь мне ссылку на вакансию или её текст, и я подготовлю всё за 3 секунды!*"
+        "💡 *Ты можешь отправить команду `/scan` или просто переслать мне ссылку/текст любой вакансии!*"
     )
     await message.answer(welcome_text, parse_mode="Markdown")
 
 @dp.message(Command("scan"))
 async def cmd_scan(message: types.Message):
-    await message.answer("🔄 **Запускаю сканирование базы вакансий Яндекса...**", parse_mode="Markdown")
+    status_msg = await message.answer("🔄 **Ищу свежие вакансии на карьерных сайтах и API...**", parse_mode="Markdown")
     
-    vacancies = parse_local_yandex_vacancies()
+    vacancies = get_all_live_vacancies()
     profile = load_master_profile()
     
-    found_count = 0
+    if not vacancies:
+        await status_msg.edit_text("⚠️ Не удалось получить список вакансий. Попробуйте чуть позже.")
+        return
+        
+    await status_msg.edit_text(f"🔍 Найдено **{len(vacancies)}** актуальных вакансий. Анализирую релевантность и генерирую материалы...", parse_mode="Markdown")
+    
+    # Analyze and sort by match score
+    scored_vacs = []
     for v in vacancies:
         analysis = analyze_and_adapt(v['description'], v['title'], v['company'])
-        if analysis['match_score'] >= 80:
-            # Generate tailored docx
-            file_safe_title = "".join(c for c in v['title'] if c.isalnum() or c in (' ', '_')).rstrip()[:30]
-            docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_Kokhtenko_{file_safe_title}.docx"
+        scored_vacs.append((analysis['match_score'], v, analysis))
+        
+    scored_vacs.sort(key=lambda x: x[0], reverse=True)
+    
+    found_count = 0
+    for score, v, analysis in scored_vacs:
+        if score >= 75:
+            # Generate tailored docx with clean filename
+            safe_comp = re.sub(r'[^\w]', '', v['company']) or 'Company'
+            safe_title = re.sub(r'[^\w]', '_', v['title'])[:35].strip('_')
+            docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_{safe_comp}_{safe_title}.docx"
+            
             build_resume_docx(docx_path, profile, {
                 'role': analysis['adapted_role'],
                 'summary': analysis['adapted_summary']
@@ -77,14 +93,14 @@ async def cmd_scan(message: types.Message):
             )
             
             card_text = (
-                f"🎯 **Найдена горячая вакансия!**\n\n"
-                f"📌 **Позиция:** {v['title']}\n"
+                f"🎯 **{v['title']}**\n"
                 f"🏢 **Компания:** {v['company']}\n"
-                f"📊 **Match Score:** {analysis['match_score']}%\n"
+                f"🌐 **Источник:** {v['source']}\n\n"
+                f"📊 **Match Score:** **{analysis['match_score']}%**\n"
                 f"🏷 **Домен:** {analysis['domain']}\n"
                 f"💡 **Почему подходит:** {analysis['match_reasons']}\n\n"
-                f"🔗 [Ссылка на вакансию]({v['url']})\n\n"
-                f"✉️ **Сопроводительное письмо:**\n_{analysis['cover_letter'][:300]}..._"
+                f"🔗 [Открыть страницу вакансии]({v['url']})\n\n"
+                f"✉️ **Сопроводительное письмо:**\n_{analysis['cover_letter'][:280]}..._"
             )
             
             await message.answer(card_text, parse_mode="Markdown", reply_markup=get_action_keyboard(vac_id))
@@ -92,7 +108,7 @@ async def cmd_scan(message: types.Message):
             if found_count >= 5:  # Send top 5
                 break
                 
-    await message.answer(f"✅ Найдено и подготовлено **{found_count}** релевантных вакансий с высоким скором.", parse_mode="Markdown")
+    await message.answer(f"✅ Показаны топ-**{found_count}** наиболее релевантных вакансий.", parse_mode="Markdown")
 
 @dp.message(F.text)
 async def handle_vacancy_text(message: types.Message):
@@ -100,12 +116,16 @@ async def handle_vacancy_text(message: types.Message):
     if text.startswith("/"):
         return
         
-    await message.answer("🧠 **Анализирую вакансию и генерирую кастомизированные материалы...**", parse_mode="Markdown")
+    await message.answer("🧠 **Анализирую вакансию и готовлю кастомизированные материалы...**", parse_mode="Markdown")
     
+    title, company = clean_title_and_company(text, default_company="IT Компания")
     profile = load_master_profile()
-    analysis = analyze_and_adapt(text, "Product Manager", "Яндекс / IT")
+    analysis = analyze_and_adapt(text, title, company)
     
-    docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_Kokhtenko_Custom_{message.message_id}.docx"
+    safe_comp = re.sub(r'[^\w]', '', company) or 'Company'
+    safe_title = re.sub(r'[^\w]', '_', title)[:35].strip('_')
+    docx_path = f"auto_job_agent/generated_resumes/CV_Oleg_{safe_comp}_{safe_title}_{message.message_id}.docx"
+    
     build_resume_docx(docx_path, profile, {
         'role': analysis['adapted_role'],
         'summary': analysis['adapted_summary']
@@ -113,9 +133,9 @@ async def handle_vacancy_text(message: types.Message):
     
     vac_id = save_vacancy(
         source="Telegram Chat Input",
-        external_id=f"custom_{message.message_id}",
-        title=analysis['adapted_role'],
-        company="IT Компания",
+        external_id=f"chat_{message.message_id}_{hash(text)}",
+        title=title,
+        company=company,
         url="https://yandex.ru/jobs",
         description=text,
         domain=analysis['domain'],
@@ -127,11 +147,12 @@ async def handle_vacancy_text(message: types.Message):
     )
     
     card_text = (
-        f"🎯 **Анализ завершен!**\n\n"
-        f"📊 **Релевантность (Match Score):** {analysis['match_score']}%\n"
+        f"🎯 **{title}**\n"
+        f"🏢 **Компания:** {company}\n\n"
+        f"📊 **Релевантность (Match Score):** **{analysis['match_score']}%**\n"
         f"🏷 **Целевой домен:** {analysis['domain']}\n"
-        f"💡 **Фокус адаптации:** {analysis['match_reasons']}\n\n"
-        f"✉️ **Сгенерированное сопроводительное письмо:**\n\n"
+        f"💡 **Фокус:** {analysis['match_reasons']}\n\n"
+        f"✉️ **Готовое сопроводительное письмо:**\n\n"
         f"{analysis['cover_letter']}"
     )
     
@@ -143,7 +164,7 @@ async def cb_get_cv(callback: types.CallbackQuery):
     vac = get_vacancy(vac_id)
     if vac and os.path.exists(vac['docx_path']):
         doc_file = FSInputFile(vac['docx_path'], filename=os.path.basename(vac['docx_path']))
-        await callback.message.answer_document(doc_file, caption=f"📄 Адаптированное резюме под вакансию: {vac['title']}")
+        await callback.message.answer_document(doc_file, caption=f"📄 Адаптированное резюме под: {vac['title']} ({vac['company']})")
         await callback.answer()
     else:
         await callback.answer("Файл не найден", show_alert=True)
@@ -156,7 +177,7 @@ async def cb_apply(callback: types.CallbackQuery):
         await callback.answer("Вакансия не найдена")
         return
         
-    await callback.message.answer(f"🚀 **Запускаю Playwright для автоотклика на:** {vac['url']}...")
+    await callback.message.answer(f"🚀 **Запускаю Playwright для автоотклика на:**\n{vac['url']}...")
     profile = load_master_profile()
     
     result = await apply_to_yandex_job(
@@ -172,7 +193,7 @@ async def cb_apply(callback: types.CallbackQuery):
         await callback.message.answer(f"✅ **Успешно!** {result['message']}")
     else:
         update_status(vac_id, 'failed', result.get('error'))
-        await callback.message.answer(f"⚠️ **Ошибка автоотклика:** {result.get('error')}")
+        await callback.message.answer(f"⚠️ **Статус:** {result.get('error') or result.get('message')}")
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("reject:"))
@@ -185,8 +206,7 @@ async def cb_reject(callback: types.CallbackQuery):
 async def main():
     init_db()
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "your_bot_token_here":
-        print("\n[!] ВНИМАНИЕ: TELEGRAM_BOT_TOKEN не задан в auto_job_agent/.env")
-        print("[!] Создайте бота в @BotFather, вставьте токен в auto_job_agent/.env и запустите снова.\n")
+        print("\n[!] TELEGRAM_BOT_TOKEN не задан.")
         return
         
     print("🤖 AI Job Agent Bot успешно запущен и слушает события...")
